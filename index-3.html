@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+html,body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+<title>塔罗排单生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow column. Controls on top, a live poster in the middle that looks like the exported image, one fixed "生成图片" bar at the bottom. Single night-sky look, on purpose. */
+:root {
+  --night: #16122e;
+  --dusk: #2a1b42;
+  --panel: #211a3b;
+  --cell: #2b2250;
+  --gold: #dec080;
+  --gold-soft: rgba(222, 192, 128, 0.45);
+  --line: rgba(222, 192, 128, 0.2);
+  --cream: #f0e8d6;
+  --muted: #b6aac8;
+  --ink: #1a1430;
+  --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --sans: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html { background: var(--night); }
+body {
+  background: linear-gradient(180deg, var(--night), var(--dusk)) fixed;
+  background-color: var(--night);
+  color: var(--cream);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px calc(110px + env(safe-area-inset-bottom, 0px));
+}
+.wrap { max-width: 560px; margin: 0 auto; display: grid; gap: 18px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.top h1 { font-family: var(--serif); font-weight: 700; font-size: 24px; color: var(--gold); margin: 0; text-wrap: balance; }
+.top p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 12px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.weeknav { justify-content: space-between; flex-wrap: nowrap; }
+.weeknav .range { font-family: var(--serif); font-weight: 600; font-size: 17px; text-align: center; flex: 1; min-width: 0; }
+.weeknav .range small { display: block; font-family: var(--sans); font-weight: 400; font-size: 12px; color: var(--muted); }
+.iconbtn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: transparent; font-size: 20px; line-height: 1; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--ink); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: transparent; border-radius: 9px; min-height: 40px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--cell); color: var(--gold); font-weight: 500; }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ghost { min-height: 42px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--cream); font-size: 14px; }
+.ghost.warn { color: #f0b6a6; border-color: rgba(240, 182, 166, 0.4); }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; min-height: 32px; display: flex; align-items: center; }
+details[open] summary { margin-bottom: 8px; }
+.fields { display: grid; gap: 10px; }
+.fields label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+.fields input { background: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; font-size: 16px; }
+
+.hint { font-size: 13px; color: var(--ink); background: var(--gold); border-radius: 10px; padding: 8px 12px; }
+
+/* poster preview */
+.poster { border-radius: 20px; border: 1px solid var(--line); background: radial-gradient(circle at 50% 0%, rgba(222,192,128,0.08), transparent 55%), var(--night); padding: 22px 14px 18px; display: grid; gap: 14px; }
+.p-head { text-align: center; display: grid; gap: 2px; }
+.moon { width: 46px; height: 46px; margin: 0 auto 6px; border-radius: 50%; box-shadow: -10px 4px 0 0 var(--gold); transform: translateX(8px) rotate(-15deg); filter: drop-shadow(0 0 10px rgba(222,192,128,0.5)); }
+.p-brand { font-size: 11px; letter-spacing: 0.3em; color: var(--muted); }
+.p-title { font-family: var(--serif); font-weight: 700; font-size: clamp(26px, 8vw, 34px); color: var(--gold); line-height: 1.25; text-wrap: balance; }
+.p-dates { font-family: var(--serif); font-size: 15px; }
+
+.grid { display: grid; grid-template-columns: 52px repeat(3, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.colhead { text-align: center; font-size: 13px; color: var(--muted); }
+.day { display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
+.day b { font-family: var(--serif); font-size: 16px; }
+.day span { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cell { min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--cell); display: grid; place-items: center; gap: 0; padding: 4px; font-size: 11px; color: var(--muted); }
+.cell svg { width: 22px; height: 22px; }
+.cell.s1 { background: rgba(222, 192, 128, 0.14); border-color: var(--gold-soft); color: var(--gold); }
+.cell.s2 { background: rgba(10, 8, 24, 0.5); color: var(--muted); }
+.cell.s2 svg { opacity: 0.8; }
+
+.tlist { display: grid; gap: 8px; }
+.trow { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: center; background: var(--cell); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.chip { display: inline-flex; align-items: center; border: 1px solid var(--gold-soft); border-radius: 999px; overflow: hidden; }
+.chip .t { border: 0; background: transparent; color: var(--gold); padding: 6px 4px 6px 12px; min-height: 36px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.chip .x { border: 0; background: transparent; color: var(--muted); width: 32px; min-height: 36px; font-size: 16px; }
+.chip.full { border-color: var(--line); }
+.chip.full .t { color: var(--muted); text-decoration: line-through; }
+.rest { font-size: 13px; color: var(--muted); }
+.add { border: 1px dashed var(--gold-soft); background: transparent; color: var(--gold); border-radius: 999px; min-height: 36px; padding: 0 12px; font-size: 13px; }
+.adder { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.adder input { background: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; min-height: 38px; font-size: 16px; }
+.adder button { min-height: 38px; border-radius: 10px; border: 0; background: var(--gold); color: var(--ink); padding: 0 12px; font-weight: 500; }
+
+.legend { display: flex; justify-content: center; gap: 22px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 16px; height: 16px; }
+.p-foot { text-align: center; display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 12px; }
+.p-foot b { font-family: var(--serif); color: var(--gold); font-size: 18px; }
+.p-foot span { font-size: 13px; color: var(--muted); }
+
+.note { font-size: 13px; color: var(--muted); text-align: center; margin: 0; }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: rgba(22, 18, 46, 0.92); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar .in { max-width: 560px; margin: 0 auto; }
+.primary { width: 100%; min-height: 52px; border: 0; border-radius: 14px; background: var(--gold); color: var(--ink); font-family: var(--serif); font-weight: 700; font-size: 18px; letter-spacing: 0.08em; }
+.primary:disabled { opacity: 0.6; }
+
+.modal { position: fixed; inset: 0; z-index: 20; background: rgba(8, 6, 20, 0.9); display: grid; place-items: center;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal .box { display: grid; gap: 12px; justify-items: center; max-height: 100%; width: 100%; max-width: 420px; }
+.modal img { max-height: 70vh; width: auto; max-width: 100%; border-radius: 12px; border: 1px solid var(--line); -webkit-touch-callout: default; }
+.modal p { margin: 0; text-align: center; color: var(--cream); font-size: 15px; }
+.modal p small { display: block; color: var(--muted); font-size: 13px; }
+.toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--cream); color: var(--ink); padding: 8px 14px; border-radius: 999px; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: no-preference) { .cell, .chip, .seg button { transition: background-color .15s, border-color .15s, color .15s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>塔罗排单生成器</h1>
+    <p>点格子设好本周时段，生成图片，长按保存后发朋友圈。设置会自动记在这台手机上。</p>
+  </header>
+
+  <section class="panel" aria-label="设置">
+    <div class="row weeknav">
+      <button class="iconbtn" id="prev" aria-label="上一周">‹</button>
+      <div class="range"><span id="rangeLabel"></span><small id="weekTag"></small></div>
+      <button class="iconbtn" id="next" aria-label="下一周">›</button>
+    </div>
+    <div class="seg" role="group" aria-label="排单方式">
+      <button id="mGrid" aria-pressed="true">按上午 / 下午 / 晚上</button>
+      <button id="mTimes" aria-pressed="false">按具体时间</button>
+    </div>
+    <div class="tools">
+      <button class="ghost" id="copyPrev">沿用上周时段</button>
+      <button class="ghost warn" id="clear">清空本周</button>
+    </div>
+    <details>
+      <summary>修改图片上的文字</summary>
+      <div class="fields">
+        <label for="fBrand">小标题<input id="fBrand" maxlength="24"></label>
+        <label for="fTitle">大标题<input id="fTitle" maxlength="10"></label>
+        <label for="fFoot1">底部第一行<input id="fFoot1" maxlength="18"></label>
+        <label for="fFoot2">底部第二行<input id="fFoot2" maxlength="24"></label>
+      </div>
+    </details>
+  </section>
+
+  <div class="hint" id="hint" hidden>现在是示例时段，点一下格子就能改成她自己的。</div>
+
+  <section class="poster" aria-label="排单预览">
+    <div class="p-head">
+      <div class="moon" aria-hidden="true"></div>
+      <div class="p-brand" id="pBrand"></div>
+      <div class="p-title" id="pTitle"></div>
+      <div class="p-dates" id="pDates"></div>
+    </div>
+    <div id="board"></div>
+    <div class="legend" id="legend"></div>
+    <div class="p-foot"><b id="pFoot1"></b><span id="pFoot2"></span></div>
+  </section>
+  <p class="note" id="modeNote"></p>
+</div>
+
+<div class="bar"><div class="in"><button class="primary" id="make">生成图片</button></div></div>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-label="生成的图片">
+  <div class="box">
+    <img id="out" alt="本周塔罗排单图片">
+    <p>长按图片，选"保存到相册"或"存储图像"<small>保存不了的话，直接截屏这张图也可以</small></p>
+    <button class="ghost" id="close" style="min-width:140px">关闭</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'tarot-schedule-v1';
+  var DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  var PERIODS = ['上午', '下午', '晚上'];
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+  var CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+  function defaults() {
+    return { mode: 'grid', brand: 'TAROT READING', title: '本周可约时段', foot1: '私信预约 · 先到先得', foot2: '解读有任何不明白的地方，随时多问我', weeks: {} };
+  }
+  function load() { try { var v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  var fresh = false;
+  var S = load();
+  if (!S) { S = defaults(); fresh = true; }
+  var offset = 0;
+  var adding = -1;
+  var clearArmed = false, clearTimer = null;
+
+  function monday(off) {
+    var d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + off * 7);
+    return d;
+  }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function wkey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function blankWeek() {
+    var g = [], t = [];
+    for (var i = 0; i < 7; i++) { g.push([0, 0, 0]); t.push([]); }
+    return { grid: g, times: t };
+  }
+  function exampleWeek() {
+    function T(a) { return a.map(function (s) { return { t: s.replace('*', ''), full: s.indexOf('*') > -1 }; }); }
+    return {
+      example: true,
+      grid: [[0,1,1],[0,0,1],[0,1,2],[0,0,1],[0,1,1],[1,1,0],[1,2,0]],
+      times: [T(['14:00','20:00']), T(['20:00']), T(['15:00','21:00*']), T(['20:30']), T(['14:00','19:00']), T(['11:00','15:00','20:00']), T(['10:30','14:00*'])]
+    };
+  }
+  function week(off) {
+    var k = wkey(monday(off === undefined ? offset : off));
+    if (!S.weeks[k]) {
+      if (off !== undefined) return null;
+      S.weeks[k] = fresh ? exampleWeek() : blankWeek();
+      fresh = false;
+    }
+    return S.weeks[k];
+  }
+  function touched() { var w = week(); if (w.example) { delete w.example; } save(); render(); }
+
+  function md(d) { return (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
+  function rangeText() { var m = monday(offset); return md(m) + ' — ' + md(addDays(m, 6)); }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function renderText() {
+    $('pBrand').textContent = S.brand;
+    $('pTitle').textContent = S.title;
+    $('pFoot1').textContent = S.foot1;
+    $('pFoot2').textContent = S.foot2;
+  }
+
+  function render() {
+    var m = monday(offset), w = week();
+    $('rangeLabel').textContent = rangeText();
+    $('weekTag').textContent = offset === 0 ? '本周' : offset === 1 ? '下周' : offset === -1 ? '上周' : (offset > 0 ? offset + ' 周后' : (-offset) + ' 周前');
+    $('pDates').textContent = rangeText();
+    $('hint').hidden = !w.example;
+    $('mGrid').setAttribute('aria-pressed', S.mode === 'grid');
+    $('mTimes').setAttribute('aria-pressed', S.mode === 'times');
+    renderText();
+    var b = $('board'), h = '';
+    if (S.mode === 'grid') {
+      h += '<div class="grid"><div></div>';
+      PERIODS.forEach(function (p) { h += '<div class="colhead">' + p + '</div>'; });
+      for (var d = 0; d < 7; d++) {
+        var dt = addDays(m, d);
+        h += '<div class="day"><b>' + DAYS[d] + '</b><span>' + (dt.getMonth() + 1) + '/' + dt.getDate() + '</span></div>';
+        for (var p = 0; p < 3; p++) {
+          var s = w.grid[d][p];
+          var lab = s === 1 ? '可约' : s === 2 ? '约满' : '不开放';
+          h += '<button class="cell s' + s + '" data-d="' + d + '" data-p="' + p + '" aria-label="' + DAYS[d] + PERIODS[p] + '：' + lab + '，点一下切换">' +
+            (s === 1 ? CHECK : s === 2 ? CROSS : '<span aria-hidden="true">—</span>') + '<span aria-hidden="true">' + (s === 0 ? '' : lab) + '</span></button>';
+        }
+      }
+      h += '</div>';
+      $('legend').innerHTML = '<span>' + CHECK + '可约</span><span>' + CROSS + '已约满</span><span>— 不开放</span>';
+      $('modeNote').textContent = '点一下格子：不开放 → 可约 → 约满，再点回到不开放。';
+    } else {
+      h += '<div class="tlist">';
+      for (var d2 = 0; d2 < 7; d2++) {
+        var dt2 = addDays(m, d2), list = w.times[d2];
+        h += '<div class="trow"><div class="day"><b>' + DAYS[d2] + '</b><span>' + (dt2.getMonth() + 1) + '/' + dt2.getDate() + '</span></div><div class="chips">';
+        if (!list.length && adding !== d2) h += '<span class="rest">休息</span>';
+        list.forEach(function (it, i) {
+          h += '<span class="chip' + (it.full ? ' full' : '') + '"><button class="t" data-d="' + d2 + '" data-i="' + i + '" aria-label="' + DAYS[d2] + ' ' + it.t + '：' + (it.full ? '已约满' : '可约') + '，点一下切换">' + it.t + '</button>' +
+            '<button class="x" data-d="' + d2 + '" data-i="' + i + '" aria-label="删除 ' + DAYS[d2] + ' ' + it.t + '">×</button></span>';
+        });
+        if (adding === d2) {
+          h += '<span class="adder"><input type="time" id="addTime" value="20:00" aria-label="新时间"><button id="addOk">添加</button></span>';
+        } else {
+          h += '<button class="add" data-add="' + d2 + '" aria-label="给' + DAYS[d2] + '加时间">＋ 时间</button>';
+        }
+        h += '</div></div>';
+      }
+      h += '</div>';
+      $('legend').innerHTML = '<span style="color:var(--gold)">14:00 可约</span><span style="text-decoration:line-through">14:00</span><span>已约满</span>';
+      $('modeNote').textContent = '点时间切换可约 / 约满，点 × 删除。';
+    }
+    b.innerHTML = h;
+    if (adding > -1 && $('addTime')) $('addTime').focus();
+  }
+
+  function toast(msg) {
+    var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200);
+  }
+
+  $('board').addEventListener('click', function (e) {
+    var w = week();
+    var c = e.target.closest('.cell');
+    if (c) { var d = +c.dataset.d, p = +c.dataset.p; w.grid[d][p] = (w.grid[d][p] + 1) % 3; touched(); return; }
+    var t = e.target.closest('.t');
+    if (t) { var it = w.times[+t.dataset.d][+t.dataset.i]; it.full = !it.full; touched(); return; }
+    var x = e.target.closest('.x');
+    if (x) { w.times[+x.dataset.d].splice(+x.dataset.i, 1); touched(); return; }
+    var a = e.target.closest('[data-add]');
+    if (a) { adding = +a.dataset.add; render(); return; }
+    if (e.target.id === 'addOk') { addTime(); }
+  });
+  $('board').addEventListener('keydown', function (e) { if (e.target.id === 'addTime' && e.key === 'Enter') addTime(); });
+  function addTime() {
+    var v = $('addTime').value; var w = week();
+    if (!v) { adding = -1; render(); return; }
+    var list = w.times[adding];
+    if (!list.some(function (i) { return i.t === v; })) list.push({ t: v, full: false });
+    list.sort(function (a, b) { return a.t < b.t ? -1 : 1; });
+    adding = -1; touched();
+  }
+
+  $('prev').onclick = function () { offset--; adding = -1; render(); };
+  $('next').onclick = function () { offset++; adding = -1; render(); };
+  $('mGrid').onclick = function () { S.mode = 'grid'; adding = -1; save(); render(); };
+  $('mTimes').onclick = function () { S.mode = 'times'; save(); render(); };
+  $('copyPrev').onclick = function () {
+    var p = week(offset - 1);
+    if (!p) { toast('上一周还没有排单'); return; }
+    var k = wkey(monday(offset));
+    S.weeks[k] = {
+      grid: p.grid.map(function (r) { return r.map(function (s) { return s === 2 ? 1 : s; }); }),
+      times: p.times.map(function (l) { return l.map(function (i) { return { t: i.t, full: false }; }); })
+    };
+    save(); render(); toast('已沿用上周时段，约满的都改回可约了');
+  };
+  $('clear').onclick = function () {
+    if (!clearArmed) {
+      clearArmed = true; $('clear').textContent = '再点一次确认清空';
+      clearTimer = setTimeout(function () { clearArmed = false; $('clear').textContent = '清空本周'; }, 3000);
+      return;
+    }
+    clearTimeout(clearTimer); clearArmed = false; $('clear').textContent = '清空本周';
+    S.weeks[wkey(monday(offset))] = blankWeek(); save(); render(); toast('本周已清空');
+  };
+
+  [['fBrand', 'brand'], ['fTitle', 'title'], ['fFoot1', 'foot1'], ['fFoot2', 'foot2']].forEach(function (f) {
+    var el = $(f[0]); el.value = S[f[1]];
+    el.addEventListener('input', function () { S[f[1]] = el.value; save(); renderText(); });
+  });
+
+  /* ---------- image export ---------- */
+  var GOLD = '#dec080', CREAM = '#f0e8d6', MUTED = '#b6aac8';
+  var SERIF = '"Noto Serif SC", "Songti SC", serif', SANS = '"Noto Sans SC", "PingFang SC", sans-serif';
+
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function rand(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function sparkle(ctx, x, y, r) {
+    var k = r * 0.22; ctx.beginPath();
+    ctx.moveTo(x, y - r); ctx.lineTo(x + k, y - k); ctx.lineTo(x + r, y); ctx.lineTo(x + k, y + k);
+    ctx.lineTo(x, y + r); ctx.lineTo(x - k, y + k); ctx.lineTo(x - r, y); ctx.lineTo(x - k, y - k); ctx.closePath(); ctx.fill();
+  }
+  function fitFont(ctx, weight, size, family, text, maxW, min) {
+    var s = size; do { ctx.font = weight + ' ' + s + 'px ' + family; if (ctx.measureText(text).width <= maxW) break; s -= 2; } while (s > min);
+  }
+  function center(ctx, text, y) { ctx.textAlign = 'center'; ctx.fillText(text, 540, y); ctx.textAlign = 'left'; }
+  function divider(ctx, y, half) {
+    ctx.strokeStyle = 'rgba(222,192,128,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(540 - half, y); ctx.lineTo(516, y); ctx.moveTo(564, y); ctx.lineTo(540 + half, y); ctx.stroke();
+    ctx.fillStyle = GOLD; sparkle(ctx, 540, y, 14);
+  }
+  function check(ctx, x, y, s, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x - s * 0.3, y + s * 0.7); ctx.lineTo(x + s, y - s * 0.7); ctx.stroke();
+  }
+  function cross(ctx, x, y, s, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x - s, y + s); ctx.lineTo(x + s, y - s); ctx.stroke();
+  }
+
+  function draw(ctx) {
+    var W = 1080, H = 1920, m = monday(offset), w = week();
+    var g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#16122e'); g.addColorStop(1, '#2c1c42');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    var r = rand(7);
+    for (var i = 0; i < 170; i++) {
+      var x = r() * W, y = r() * H, rad = [1, 1, 1, 2, 2, 3][Math.floor(r() * 6)];
+      ctx.fillStyle = 'rgba(255,244,220,' + (0.25 + r() * 0.55).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+    // moon
+    var mc = document.createElement('canvas'); mc.width = 200; mc.height = 200; var mx = mc.getContext('2d');
+    mx.fillStyle = GOLD; mx.beginPath(); mx.arc(100, 100, 62, 0, Math.PI * 2); mx.fill();
+    mx.globalCompositeOperation = 'destination-out'; mx.beginPath(); mx.arc(134, 91, 62, 0, Math.PI * 2); mx.fill();
+    ctx.save(); ctx.shadowColor = 'rgba(222,192,128,0.6)'; ctx.shadowBlur = 30; ctx.drawImage(mc, 440, 90); ctx.restore();
+    ctx.fillStyle = GOLD; sparkle(ctx, 390, 150, 10); sparkle(ctx, 680, 230, 7); sparkle(ctx, 715, 140, 5);
+
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = MUTED; ctx.font = '500 30px ' + SANS;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    center(ctx, S.brand, 322);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.fillStyle = GOLD; fitFont(ctx, '700', 90, SERIF, S.title, 900, 50); center(ctx, S.title, 422);
+    ctx.fillStyle = CREAM; ctx.font = '400 40px ' + SERIF; center(ctx, rangeText(), 520);
+    divider(ctx, 590, 200);
+
+    var left = 90, right = 990;
+    if (S.mode === 'grid') {
+      var labelW = 160, gap = 16, rowH = 118, top = 715;
+      var cw = (right - left - labelW - gap * 2) / 3;
+      ctx.fillStyle = MUTED; ctx.font = '500 32px ' + SANS; ctx.textAlign = 'center';
+      PERIODS.forEach(function (p, k) { ctx.fillText(p, left + labelW + k * (cw + gap) + cw / 2, 680); });
+      ctx.textAlign = 'left';
+      for (var d = 0; d < 7; d++) {
+        var y0 = top + d * rowH, ch = rowH - gap, cy = y0 + ch / 2, dt = addDays(m, d);
+        ctx.fillStyle = CREAM; ctx.font = '700 40px ' + SERIF; ctx.fillText(DAYS[d], left + 4, cy - 14);
+        ctx.fillStyle = MUTED; ctx.font = '400 24px ' + SANS; ctx.fillText((dt.getMonth() + 1) + '/' + dt.getDate(), left + 6, cy + 26);
+        for (var p = 0; p < 3; p++) {
+          var s = w.grid[d][p], x0 = left + labelW + p * (cw + gap), cx = x0 + cw / 2;
+          rr(ctx, x0, y0, cw, ch, 22);
+          ctx.fillStyle = s === 1 ? 'rgba(222,192,128,0.14)' : s === 2 ? 'rgba(10,8,24,0.55)' : 'rgba(44,34,74,0.85)';
+          ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = s === 1 ? 'rgba(222,192,128,0.6)' : 'rgba(222,192,128,0.2)'; ctx.stroke();
+          if (s === 1) check(ctx, cx, cy, 20, GOLD);
+          else if (s === 2) cross(ctx, cx, cy, 15, MUTED);
+          else { ctx.strokeStyle = 'rgba(182,170,200,0.4)'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy); ctx.stroke(); }
+        }
+      }
+      // legend
+      var ly = 1600; ctx.font = '400 32px ' + SANS;
+      var items = [['c', '可约'], ['x', '已约满'], ['-', '不开放']], widths = items.map(function (it) { return 56 + ctx.measureText(it[1]).width; });
+      var lx = (W - (widths.reduce(function (a, b) { return a + b; }) + 60 * 2)) / 2;
+      items.forEach(function (it, k) {
+        if (it[0] === 'c') check(ctx, lx + 18, ly, 15, GOLD);
+        else if (it[0] === 'x') cross(ctx, lx + 18, ly, 12, MUTED);
+        else { ctx.strokeStyle = 'rgba(182,170,200,0.6)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(lx + 6, ly); ctx.lineTo(lx + 30, ly); ctx.stroke(); }
+        ctx.fillStyle = CREAM; ctx.fillText(it[1], lx + 50, ly + 2); lx += widths[k] + 60;
+      });
+    } else {
+      var rowH2 = 126, gap2 = 16, top2 = 640;
+      for (var d2 = 0; d2 < 7; d2++) {
+        var y1 = top2 + d2 * rowH2, h1 = rowH2 - gap2, cy1 = y1 + h1 / 2, dt2 = addDays(m, d2), list = w.times[d2];
+        rr(ctx, left, y1, right - left, h1, 22); ctx.fillStyle = 'rgba(44,34,74,0.85)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(222,192,128,0.2)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = GOLD; ctx.font = '700 40px ' + SERIF; ctx.fillText(DAYS[d2], left + 34, cy1 - 14);
+        ctx.fillStyle = MUTED; ctx.font = '400 24px ' + SANS; ctx.fillText((dt2.getMonth() + 1) + '/' + dt2.getDate(), left + 36, cy1 + 26);
+        ctx.strokeStyle = 'rgba(222,192,128,0.2)'; ctx.beginPath(); ctx.moveTo(left + 160, y1 + 24); ctx.lineTo(left + 160, y1 + h1 - 24); ctx.stroke();
+        var x1 = left + 186, avail = right - 24 - x1;
+        if (!list.length) { ctx.fillStyle = MUTED; ctx.font = '400 32px ' + SANS; ctx.fillText('休息', x1, cy1 + 2); continue; }
+        var fs = 34, pad, cgap, total;
+        do {
+          ctx.font = '500 ' + fs + 'px ' + SANS; pad = fs * 0.65; cgap = fs * 0.4;
+          total = list.reduce(function (a, it) { return a + ctx.measureText(it.t).width + pad * 2 + cgap; }, -cgap);
+          if (total <= avail) break; fs -= 2;
+        } while (fs > 20);
+        var chH = fs * 1.75;
+        list.forEach(function (it) {
+          var tw = ctx.measureText(it.t).width, cwid = tw + pad * 2;
+          rr(ctx, x1, cy1 - chH / 2, cwid, chH, chH / 2);
+          ctx.fillStyle = it.full ? 'rgba(10,8,24,0.45)' : 'rgba(222,192,128,0.12)'; ctx.fill();
+          ctx.lineWidth = 2; ctx.strokeStyle = it.full ? 'rgba(222,192,128,0.18)' : 'rgba(222,192,128,0.6)'; ctx.stroke();
+          ctx.fillStyle = it.full ? MUTED : GOLD; ctx.fillText(it.t, x1 + pad, cy1 + 2);
+          if (it.full) { ctx.strokeStyle = MUTED; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1 + pad - 4, cy1 + 2); ctx.lineTo(x1 + pad + tw + 4, cy1 + 2); ctx.stroke(); }
+          x1 += cwid + cgap;
+        });
+      }
+      var ly2 = 1600; ctx.font = '500 30px ' + SANS;
+      var a = '14:00', aw = ctx.measureText(a).width, cw2 = aw + 40, lab1 = '可约', lab2 = '已约满';
+      ctx.font = '400 32px ' + SANS;
+      var tot = cw2 + 14 + ctx.measureText(lab1).width + 70 + cw2 + 14 + ctx.measureText(lab2).width, lx2 = (W - tot) / 2;
+      [[false, lab1], [true, lab2]].forEach(function (it) {
+        rr(ctx, lx2, ly2 - 26, cw2, 52, 26); ctx.fillStyle = it[0] ? 'rgba(10,8,24,0.45)' : 'rgba(222,192,128,0.12)'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = it[0] ? 'rgba(222,192,128,0.18)' : 'rgba(222,192,128,0.6)'; ctx.stroke();
+        ctx.font = '500 30px ' + SANS; ctx.fillStyle = it[0] ? MUTED : GOLD; ctx.fillText(a, lx2 + 20, ly2 + 2);
+        if (it[0]) { ctx.strokeStyle = MUTED; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(lx2 + 16, ly2 + 2); ctx.lineTo(lx2 + 24 + aw, ly2 + 2); ctx.stroke(); }
+        ctx.font = '400 32px ' + SANS; ctx.fillStyle = CREAM; ctx.fillText(it[1], lx2 + cw2 + 14, ly2 + 2);
+        lx2 += cw2 + 14 + ctx.measureText(it[1]).width + 70;
+      });
+    }
+    divider(ctx, 1690, 300);
+    ctx.fillStyle = GOLD; fitFont(ctx, '700', 46, SERIF, S.foot1, 940, 28); center(ctx, S.foot1, 1762);
+    ctx.fillStyle = MUTED; fitFont(ctx, '400', 32, SANS, S.foot2, 940, 22); center(ctx, S.foot2, 1832);
+  }
+
+  function allText() {
+    var t = S.brand + S.title + S.foot1 + S.foot2 + rangeText() + DAYS.join('') + PERIODS.join('') + '可约已约满不开放休息0123456789:/—·';
+    return t;
+  }
+  $('make').onclick = function () {
+    var btn = $('make'); btn.disabled = true; btn.textContent = '生成中…';
+    var txt = allText();
+    var fontsReady = Promise.all([
+      document.fonts.load('700 90px "Noto Serif SC"', txt),
+      document.fonts.load('400 40px "Noto Serif SC"', txt),
+      document.fonts.load('400 32px "Noto Sans SC"', txt),
+      document.fonts.load('500 32px "Noto Sans SC"', txt)
+    ]).catch(function () {});
+    var timeout = new Promise(function (res) { setTimeout(res, 4000); });
+    Promise.race([fontsReady, timeout]).then(function () {
+      var c = document.createElement('canvas'); c.width = 1080; c.height = 1920;
+      draw(c.getContext('2d'));
+      $('out').src = c.toDataURL('image/png');
+      $('modal').hidden = false;
+      btn.disabled = false; btn.textContent = '生成图片';
+    });
+  };
+  $('close').onclick = function () { $('modal').hidden = true; };
+  $('modal').addEventListener('click', function (e) { if (e.target.id === 'modal') $('modal').hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('modal').hidden = true; });
+
+  render();
+  save();
+})();
+</script>
+
+</body>
+</html>
